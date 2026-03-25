@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampHub — Campaign Execution Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1f2d45;--border2:#263548;
+    --amber:#f59e0b;--amber2:#fbbf24;--amber-dim:rgba(245,158,11,0.12);--amber-dim2:rgba(245,158,11,0.06);
+    --green:#10b981;--green-dim:rgba(16,185,129,0.12);
+    --blue:#3b82f6;--blue-dim:rgba(59,130,246,0.12);
+    --red:#ef4444;--red-dim:rgba(239,68,68,0.1);
+    --purple:#8b5cf6;--purple-dim:rgba(139,92,246,0.12);
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--display:'Syne',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:rgba(10,14,26,0.95);position:sticky;top:0;z-index:100;backdrop-filter:blur(8px);}
+  .logo{font-family:var(--display);font-size:15px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber);}
+  .logo span{color:var(--text2);font-weight:400;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .topbar-date{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .user-pill{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text2);}
+  .user-dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .back-btn{display:none;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--sans);font-size:13px;cursor:pointer;border-radius:4px;transition:all 0.15s;}
+  .back-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .back-btn.visible{display:flex;}
+  .signout-btn{padding:5px 12px;border:1px solid var(--border2);background:transparent;color:var(--text3);font-family:var(--sans);font-size:12px;cursor:pointer;border-radius:4px;transition:all 0.15s;}
+  .signout-btn:hover{border-color:var(--red);color:var(--red);}
+
+  .page{display:none;}.page.active{display:block;}
+
+  /* SIGN IN */
+  .signin-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+  .signin-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:48px;text-align:center;max-width:400px;width:100%;}
+  .signin-logo{font-family:var(--display);font-size:26px;font-weight:800;color:var(--amber);margin-bottom:6px;letter-spacing:0.06em;}
+  .signin-sub{color:var(--text2);font-size:13px;margin-bottom:32px;line-height:1.6;}
+  .signin-btn{display:inline-flex;align-items:center;gap:10px;padding:11px 22px;background:var(--amber);color:#0a0e1a;border:none;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+  .signin-btn:hover{background:var(--amber2);}
+  .signin-note{margin-top:14px;font-size:11px;color:var(--text3);}
+
+  /* HUB */
+  .hub{padding:32px;}
+  .hub-header{margin-bottom:28px;}
+  .hub-header h1{font-family:var(--display);font-size:28px;font-weight:800;margin-bottom:6px;}
+  .hub-header p{color:var(--text2);font-size:14px;}
+  .hub-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;}
+  .role-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+  .role-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-accent);transition:height 0.2s;}
+  .role-card:hover{border-color:var(--card-accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+  .role-card:hover::before{height:4px;}
+  .role-card[data-role="seller"]{--card-accent:var(--amber);}
+  .role-card[data-role="am"]{--card-accent:var(--blue);}
+  .role-card[data-role="account"]{--card-accent:var(--green);}
+  .role-card[data-role="exec"]{--card-accent:var(--purple);}
+  .role-icon{font-size:28px;margin-bottom:14px;}
+  .role-title{font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em;}
+  .role-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px;}
+  .role-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:3px;font-family:var(--mono);font-size:11px;font-weight:500;}
+  .role-card[data-role="seller"] .role-badge{background:var(--amber-dim);color:var(--amber);}
+  .role-card[data-role="am"] .role-badge{background:var(--blue-dim);color:var(--blue);}
+  .role-card[data-role="account"] .role-badge{background:var(--green-dim);color:var(--green);}
+  .role-card[data-role="exec"] .role-badge{background:var(--purple-dim);color:var(--purple);}
+
+  /* DEALS */
+  .deals-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;}
+  .deals-header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);}
+  .deals-header h2{font-family:var(--display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;}
+  .deals-header-r{display:flex;align-items:center;gap:12px;}
+  .deals-count{font-family:var(--mono);font-size:12px;color:var(--text3);}
+  .search-wrap{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 10px;}
+  .search-wrap input{background:none;border:none;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;width:160px;}
+  .search-wrap input::placeholder{color:var(--text3);}
+  .deals-table{width:100%;border-collapse:collapse;}
+  .deals-table thead th{padding:10px 16px;text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  .deals-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;cursor:pointer;}
+  .deals-table tbody tr:hover{background:var(--surface2);}
+  .deals-table tbody td{padding:12px 16px;font-size:13px;}
+  .td-id{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .td-name{font-weight:500;}
+  .td-sub{color:var(--text2);font-size:12px;}
+  .td-money{font-family:var(--mono);font-size:12px;}
+
+  /* STATUS */
+  .status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:500;white-space:nowrap;}
+  .status-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;opacity:0.7;}
+  .s-live{background:var(--green-dim);color:var(--green);}
+  .s-complete{background:var(--purple-dim);color:var(--purple);}
+  .s-upcoming{background:var(--amber-dim);color:var(--amber);}
+  .s-draft{background:rgba(100,116,139,0.15);color:#94a3b8;}
+
+  /* INNER */
+  .inner-page{padding:32px;}
+  .inner-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;}
+  .inner-header-left h1{font-family:var(--display);font-size:22px;font-weight:800;margin-bottom:4px;}
+  .inner-header-left p{color:var(--text2);font-size:13px;}
+  .role-tag{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:500;}
+  .rt-seller{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,0.25);}
+  .rt-am{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,0.25);}
+  .rt-account{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,0.25);}
+  .rt-exec{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,92,246,0.25);}
+
+  /* CARDS */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:20px;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);}
+  .card-title{font-family:var(--display);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;}
+  .card-body{padding:20px;}
+
+  /* KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;}
+  .kpi-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:10px;}
+  .kpi-val{font-family:var(--display);font-size:26px;font-weight:800;margin-bottom:4px;}
+  .kpi-sub{font-size:12px;color:var(--text2);}
+
+  /* SIDEBAR */
+  .csi{padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all 0.15s;margin-bottom:6px;}
+  .csi:hover{border-color:var(--amber);}
+  .csi.active{border-color:var(--amber);background:var(--amber-dim2);}
+  .csi-name{font-size:13px;font-weight:500;margin-bottom:3px;}
+  .csi-sub{font-size:11px;color:var(--text3);}
+
+  /* ROLLUP */
+  .rollup-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .rollup-card{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;}
+  .rollup-label{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;}
+  .rollup-est{font-size:11px;color:var(--text2);margin-bottom:3px;}
+  .rollup-final{font-family:var(--display);font-size:18px;font-weight:800;color:var(--amber);}
+
+  /* VENDOR TABLE */
+  .vendor-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .vendor-table thead th{padding:8px 14px;text-align:left;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  .vendor-table thead th.th-est{color:var(--blue);}
+  .vendor-table thead th.th-act{color:var(--green);}
+  .vendor-table thead th.th-var{color:var(--amber);}
+  .vendor-table tbody tr{border-bottom:1px solid var(--border);}
+  .vendor-table tbody tr:hover{background:var(--surface2);}
+  .vendor-table tbody td{padding:9px 14px;}
+  .td-est{font-family:var(--mono);font-size:11px;color:var(--blue);text-align:right;}
+  .td-act{font-family:var(--mono);font-size:11px;color:var(--green);text-align:right;}
+  .td-vp{font-family:var(--mono);font-size:11px;color:var(--green);text-align:right;}
+  .td-vn{font-family:var(--mono);font-size:11px;color:var(--red);text-align:right;}
+
+  /* LOADING */
+  .loading{text-align:center;padding:48px 20px;color:var(--text3);font-size:13px;}
+  .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
+  .err{background:var(--red-dim);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:12px 16px;font-size:13px;color:var(--red);margin:12px 0;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(8px);transition:all 0.25s;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.5);pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+  .toast-dot.amber{background:var(--amber);}
+  .toast-dot.red{background:var(--red);}
+
+  .overflow-x{overflow-x:auto;}
+  .divider{height:1px;background:var(--border);margin:16px 0;}
+  ::-webkit-scrollbar{width:4px;height:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Camp<span>Hub</span></div>
+  <div class="topbar-right">
+    <button class="back-btn" id="backBtn" onclick="goHub()">← Hub</button>
+    <div class="topbar-date" id="topbarDate"></div>
+    <div class="user-pill" id="userPill" style="display:none"><div class="user-dot"></div><span id="userEmail"></span></div>
+    <button class="signout-btn" id="signoutBtn" style="display:none" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="toast-dot" id="toastDot"></div><span id="toastMsg"></span></div>
+
+<!-- SIGN IN -->
+<div class="page active" id="page-signin">
+  <div class="signin-wrap">
+    <div class="signin-card">
+      <div class="signin-logo">CAMPHUB</div>
+      <div class="signin-sub">Campaign Execution Portal<br>Sign in with your Betches Google account to continue.</div>
+      <button class="signin-btn" onclick="signIn()">
+        <svg width="16" height="16" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Sign in with Google
+      </button>
+      <div class="signin-note">Only @betches.com accounts are authorised.</div>
+    </div>
+  </div>
+</div>
+
+<!-- HUB -->
+<div class="page" id="page-hub">
+  <div class="hub">
+    <div class="hub-header">
+      <h1>Campaign Execution Hub</h1>
+      <p>Select your role to continue, or review the full campaign pipeline below.</p>
+    </div>
+    <div class="hub-grid">
+      <div class="role-card" data-role="seller" onclick="goPage('seller')">
+        <div class="role-icon">🎯</div>
+        <div class="role-title">Seller</div>
+        <div class="role-desc">Review booked campaigns, track budget booked, and monitor flight dates.</div>
+        <div class="role-badge" id="badge-seller">— Campaigns</div>
+      </div>
+      <div class="role-card" data-role="am" onclick="goPage('am')">
+        <div class="role-icon">📊</div>
+        <div class="role-title">Account Manager</div>
+        <div class="role-desc">Manage vendor costs, production, talent, and actualized spend per campaign.</div>
+        <div class="role-badge" id="badge-am">— Active</div>
+      </div>
+      <div class="role-card" data-role="account" onclick="goPage('account')">
+        <div class="role-icon">📋</div>
+        <div class="role-title">Account Mgmt</div>
+        <div class="role-desc">Track live campaigns and view estimated vs actualized costs with variance.</div>
+        <div class="role-badge" id="badge-account">— Live</div>
+      </div>
+      <div class="role-card" data-role="exec" onclick="goPage('exec')">
+        <div class="role-icon">📈</div>
+        <div class="role-title">Executive</div>
+        <div class="role-desc">Portfolio performance — total budget booked across all campaigns.</div>
+        <div class="role-badge" id="badge-exec">— Total</div>
+      </div>
+    </div>
+    <div class="deals-section">
+      <div class="deals-header">
+        <h2>All Campaigns</h2>
+        <div class="deals-header-r">
+          <div class="search-wrap">
+            <svg width="12" height="12" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="searchInput" placeholder="Search..." oninput="filterTable()">
+          </div>
+          <span class="deals-count" id="dealsCount">Loading...</span>
+        </div>
+      </div>
+      <div id="dealsTableWrap"><div class="loading"><div class="spinner"></div><br>Loading from Google Sheets...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SELLER -->
+<div class="page" id="page-seller">
+  <div class="inner-page">
+    <div class="inner-header">
+      <div class="inner-header-left"><h1>Seller View</h1><p>All booked campaigns — budget, status, and flight dates.</p></div>
+      <span class="role-tag rt-seller">🎯 Seller</span>
+    </div>
+    <div id="sellerContent"><div class="loading"><div class="spinner"></div><br>Loading...</div></div>
+  </div>
+</div>
+
+<!-- AM -->
+<div class="page" id="page-am">
+  <div class="inner-page">
+    <div class="inner-header">
+      <div class="inner-header-left"><h1>Account Manager</h1><p>Vendor costs, production, and budget rollup per campaign.</p></div>
+      <span class="role-tag rt-am">📊 Account Manager</span>
+    </div>
+    <div style="display:grid;grid-template-columns:260px 1fr;gap:20px;">
+      <div class="card" style="height:fit-content">
+        <div class="card-header"><span class="card-title">Campaigns</span></div>
+        <div class="card-body" style="padding:10px" id="amList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      <div id="amPanel"><div class="empty" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:60px">Select a campaign to view vendor costs.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT MGMT -->
+<div class="page" id="page-account">
+  <div class="inner-page">
+    <div class="inner-header">
+      <div class="inner-header-left"><h1>Account Management — Actuals</h1><p>Estimated vs actualized spend with variance tracking.</p></div>
+      <span class="role-tag rt-account">📋 Account Mgmt</span>
+    </div>
+    <div style="display:grid;grid-template-columns:260px 1fr;gap:20px;">
+      <div class="card" style="height:fit-content">
+        <div class="card-header"><span class="card-title">Live Campaigns</span></div>
+        <div class="card-body" style="padding:10px" id="acctList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      <div id="acctPanel"><div class="empty" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:60px">Select a campaign to view actuals.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXEC -->
+<div class="page" id="page-exec">
+  <div class="inner-page">
+    <div class="inner-header">
+      <div class="inner-header-left"><h1>Executive Overview</h1><p>Portfolio performance — budget booked across all campaigns.</p></div>
+      <span class="role-tag rt-exec">📈 Executive</span>
+    </div>
+    <div class="kpi-grid" id="execKpis"></div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Campaign Portfolio</span></div>
+      <div id="execTable"><div class="loading"><div class="spinner"></div><br>Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID='91684144578-u13j2ftjcmtk2upgujub2dpa4m0qsosn.apps.googleusercontent.com';
+const SHEET_ID='1gA6gPkUzB-8rpdlzR9DUMxzytzVc6ex2VUfw6ZrJ32U';
+const SCOPES='https://www.googleapis.com/auth/spreadsheets.readonly';
+let accessToken=null, campaigns=[], sheetNames=[];
+
+const fmt=n=>{n=parseFloat(String(n).replace(/[^0-9.-]/g,''));if(isNaN(n)||n===0)return'—';if(n>=1000000)return'$'+(n/1000000).toFixed(2)+'M';if(n>=1000)return'$'+Math.round(n/1000)+'K';return'$'+n.toLocaleString();};
+const fmtF=n=>{n=parseFloat(String(n).replace(/[^0-9.-]/g,''));if(isNaN(n)||n===0)return'—';return'$'+n.toLocaleString();};
+const fmtD=d=>d?new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+const getStatus=c=>{const now=new Date(),s=new Date(c.startDate),e=new Date(c.endDate);if(!c.startDate)return'draft';if(s<=now&&e>=now)return'live';if(e<now)return'complete';return'upcoming';};
+const sPill=c=>{const st=getStatus(c);const m={live:'s-live Live',complete:'s-complete Complete',upcoming:'s-upcoming Upcoming',draft:'s-draft Draft'};const[cl,lb]=(m[st]||'s-draft Draft').split(' ');return`<span class="status-pill ${cl}">${lb}</span>`;};
+
+function toast(msg,type='green'){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;document.getElementById('toastDot').className='toast-dot'+(type!=='green'?' '+type:'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+window.onload=()=>{
+  document.getElementById('topbarDate').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  const tok=sessionStorage.getItem('gat'),em=sessionStorage.getItem('gem');
+  if(tok){accessToken=tok;showAuthed(em||'');init();}
+};
+
+function signIn(){
+  const tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:async resp=>{
+    if(resp.error){toast('Sign-in failed','red');return;}
+    accessToken=resp.access_token;sessionStorage.setItem('gat',accessToken);
+    try{const i=await(await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}})).json();sessionStorage.setItem('gem',i.email||'');showAuthed(i.email||'');}catch(e){showAuthed('');}
+    init();
+  }});
+  tc.requestAccessToken();
+}
+function signOut(){try{google.accounts.oauth2.revoke(accessToken,()=>{});}catch(e){}accessToken=null;sessionStorage.removeItem('gat');sessionStorage.removeItem('gem');campaigns=[];sheetNames=[];document.getElementById('userPill').style.display='none';document.getElementById('signoutBtn').style.display='none';goPage('signin');toast('Signed out','amber');}
+function showAuthed(email){document.getElementById('userEmail').textContent=email;document.getElementById('userPill').style.display='flex';document.getElementById('signoutBtn').style.display='block';}
+
+async function api(range){const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,{headers:{Authorization:'Bearer '+accessToken}});if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'API error');}return(await r.json()).values||[];}
+async function getTabs(){const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,{headers:{Authorization:'Bearer '+accessToken}});if(!r.ok)throw new Error('Cannot fetch tabs');return((await r.json()).sheets||[]).map(s=>s.properties.title);}
+
+async function init(){
+  goPage('hub');
+  try{
+    const[rows,tabs]=await Promise.all([api('Campaigns!A:L'),getTabs()]);
+    sheetNames=tabs;
+    if(!rows||rows.length<2){toast('No campaigns found','amber');return;}
+    campaigns=rows.slice(1).filter(r=>r[0]).map(r=>({
+      ioId:String(r[0]||''),dealId:String(r[1]||''),name:r[2]||'',
+      agency:r[3]||'',advertiser:r[4]||'',team:r[5]||'',
+      startDate:r[6]||'',endDate:r[7]||'',closedDate:r[8]||'',
+      currency:r[9]||'USD',budget:parseFloat(String(r[10]).replace(/[^0-9.]/g,''))||0,
+      projectName:r[11]||'',
+    }));
+    renderHub();toast('Loaded '+campaigns.length+' campaigns');
+  }catch(e){document.getElementById('dealsTableWrap').innerHTML=`<div class="err">Error: ${e.message}. Try signing out and back in.</div>`;toast('Load failed','red');}
+}
+
+function renderHub(){
+  const live=campaigns.filter(c=>getStatus(c)==='live').length;
+  const total=campaigns.reduce((s,c)=>s+c.budget,0);
+  document.getElementById('badge-seller').textContent=campaigns.length+' Campaigns';
+  document.getElementById('badge-am').textContent=live+' Active';
+  document.getElementById('badge-account').textContent=live+' Live';
+  document.getElementById('badge-exec').textContent=fmt(total)+' Booked';
+  document.getElementById('dealsCount').textContent=campaigns.length+' campaigns';
+  renderDeals(campaigns);
+}
+
+function renderDeals(list){
+  if(!list.length){document.getElementById('dealsTableWrap').innerHTML='<div class="empty">No campaigns match your search.</div>';return;}
+  const rows=list.map(c=>`<tr onclick="openFromHub('${c.ioId}')">
+    <td class="td-id">IO-${c.ioId}</td>
+    <td class="td-name">${c.name}</td>
+    <td class="td-sub">${c.advertiser||'—'}</td>
+    <td class="td-sub">${c.agency||'—'}</td>
+    <td class="td-money" style="color:var(--blue)">${fmt(c.budget)}</td>
+    <td class="td-sub" style="font-size:11px">${fmtD(c.startDate)}</td>
+    <td class="td-sub" style="font-size:11px">${fmtD(c.endDate)}</td>
+    <td>${sPill(c)}</td>
+    <td class="td-sub" style="font-size:11px">${c.team?c.team.split(';')[0].trim():'—'}</td>
+  </tr>`).join('');
+  document.getElementById('dealsTableWrap').innerHTML=`<table class="deals-table"><thead><tr><th>IO ID</th><th>Campaign</th><th>Advertiser</th><th>Agency</th><th>Budget</th><th>Start</th><th>End</th><th>Status</th><th>Lead</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function filterTable(){const q=document.getElementById('searchInput').value.toLowerCase();renderDeals(campaigns.filter(c=>c.name.toLowerCase().includes(q)||c.advertiser.toLowerCase().includes(q)||c.agency.toLowerCase().includes(q)||c.ioId.includes(q)));}
+
+function findTab(name){
+  const skip=['summary','clean template','campaigns','mapping'];
+  const words=name.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(' ').filter(w=>w.length>2);
+  let best=null,bestScore=0;
+  for(const t of sheetNames){if(skip.some(s=>t.toLowerCase().includes(s)))continue;const tl=t.toLowerCase();const score=words.filter(w=>tl.includes(w)).length;if(score>bestScore){bestScore=score;best=t;}}
+  return best;
+}
+async function loadTab(name){const tab=findTab(name);if(!tab)return{error:'No matching tab found for: '+name};try{const rows=await api(`'${tab}'!A1:Z200`);return{rows,tab};}catch(e){return{error:e.message};}}
+
+function parseVendors(rows){
+  let h=-1;
+  for(let i=0;i<rows.length;i++){if(rows[i]?.[0]?.toString().toLowerCase().includes('vendor type')){h=i;break;}}
+  if(h===-1)return[];
+  return rows.slice(h+1).filter(r=>r&&(r[0]||r[1])).map(r=>({
+    type:r[0]||'',name:r[1]||'',desc:r[3]||'',rate:r[5]||'',qty:r[6]||'',
+    est:parseFloat(String(r[8]||'').replace(/[^0-9.]/g,''))||0,
+    actual:parseFloat(String(r[9]||'').replace(/[^0-9.]/g,''))||0,
+    method:r[10]||'',status:r[11]||'',flags:r[13]||'',
+    jan:r[15]||'',feb:r[16]||'',mar:r[17]||'',apr:r[18]||'',
+    may:r[19]||'',jun:r[20]||'',jul:r[21]||'',aug:r[22]||'',
+    sep:r[23]||'',oct:r[24]||'',nov:r[25]||'',dec:r[26]||'',
+  }));
+}
+function parseRollup(rows){
+  const g=(r,c)=>rows[r]?.[c]||'';
+  return{prodEst:g(4,11),prodFinal:g(4,14),talEst:g(5,11),talFinal:g(5,14),artEst:g(6,11),artFinal:g(6,14),paidEst:g(7,11),paidFinal:g(7,14),seller:g(3,7),am:g(4,7),brand:g(7,1)};
+}
+function rollupHTML(b){
+  const c=(lbl,est,fin)=>`<div class="rollup-card"><div class="rollup-label">${lbl}</div><div class="rollup-est">Est: ${fmtF(est)}</div><div class="rollup-final">${fmtF(fin)||fmtF(est)}</div></div>`;
+  return`<div class="rollup-grid">${c('Production',b.prodEst,b.prodFinal)}${c('Talent',b.talEst,b.talFinal)}${c('Article',b.artEst,b.artFinal)}${c('Paid Amplification',b.paidEst,b.paidFinal)}</div>`;
+}
+function vendorTableHTML(vendors){
+  const v=vendors.filter(x=>x.name);
+  if(!v.length)return'<div class="empty">No vendor line items found.</div>';
+  const rows=v.map(x=>{
+    const var_=x.actual>0?x.actual-x.est:null;
+    const vc=var_===null?'':var_>0?'td-vn':'td-vp';
+    const vs=var_===null?'—':(var_>0?'+':'')+fmtF(var_);
+    const sc=x.status?.toLowerCase().includes('paid')?'color:var(--green)':x.status?.toLowerCase().includes('pending')?'color:var(--amber)':x.status?.toLowerCase().includes('cancel')?'color:var(--red)':'color:var(--text3)';
+    return`<tr><td style="font-family:var(--mono);font-size:10px;color:var(--text3)">${x.type}</td><td style="font-weight:500;font-size:12px">${x.name}</td><td style="font-size:11px;color:var(--text2);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.desc}</td><td class="td-est">${x.est?fmtF(x.est):'—'}</td><td class="td-act">${x.actual?fmtF(x.actual):'—'}</td><td class="${vc}">${vs}</td><td style="font-family:var(--mono);font-size:10px;${sc}">${x.status||'—'}</td><td style="font-size:11px;color:var(--text2)">${x.method||'—'}</td>${x.flags?`<td style="font-size:11px;color:var(--red)">${x.flags}</td>`:'<td></td>'}</tr>`;
+  }).join('');
+  return`<div class="overflow-x"><table class="vendor-table"><thead><tr><th>Type</th><th>Vendor</th><th>Description</th><th class="th-est" style="text-align:right">Estimated</th><th class="th-act" style="text-align:right">Actualized</th><th class="th-var" style="text-align:right">Variance</th><th>Status</th><th>Payment</th><th>Flags</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// SELLER PAGE
+function renderSellerPage(){
+  const live=campaigns.filter(c=>getStatus(c)==='live');
+  const upcoming=campaigns.filter(c=>getStatus(c)==='upcoming');
+  const complete=campaigns.filter(c=>getStatus(c)==='complete');
+  const total=campaigns.reduce((s,c)=>s+c.budget,0);
+  const section=(title,list,color)=>{
+    if(!list.length)return'';
+    const rows=list.map(c=>`<tr onclick="openFromHub('${c.ioId}')"><td class="td-id">IO-${c.ioId}</td><td class="td-name">${c.name}</td><td class="td-sub">${c.advertiser||'—'}</td><td class="td-sub">${c.team?c.team.split(';')[0].trim():'—'}</td><td class="td-money" style="color:var(--blue)">${fmt(c.budget)}</td><td class="td-sub" style="font-size:11px">${fmtD(c.startDate)} → ${fmtD(c.endDate)}</td><td>${sPill(c)}</td></tr>`).join('');
+    return`<div class="card"><div class="card-header"><span class="card-title" style="color:${color}">${title} (${list.length})</span></div><div class="overflow-x"><table class="deals-table"><thead><tr><th>IO ID</th><th>Campaign</th><th>Advertiser</th><th>Lead</th><th>Budget</th><th>Flight</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  };
+  document.getElementById('sellerContent').innerHTML=`
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Budget Booked</div><div class="kpi-val" style="color:var(--amber)">${fmt(total)}</div><div class="kpi-sub">${campaigns.length} campaigns</div></div>
+      <div class="kpi-card"><div class="kpi-label">Live Now</div><div class="kpi-val" style="color:var(--green)">${live.length}</div><div class="kpi-sub">running campaigns</div></div>
+      <div class="kpi-card"><div class="kpi-label">Upcoming</div><div class="kpi-val" style="color:var(--amber)">${upcoming.length}</div><div class="kpi-sub">not yet started</div></div>
+      <div class="kpi-card"><div class="kpi-label">Complete</div><div class="kpi-val" style="color:var(--purple)">${complete.length}</div><div class="kpi-sub">wrapped</div></div>
+    </div>
+    ${section('Live / Running',live,'var(--green)')}
+    ${section('Upcoming',upcoming,'var(--amber)')}
+    ${section('Complete',complete,'var(--purple)')}`;
+}
+
+// AM PAGE
+function renderAMList(){
+  document.getElementById('amList').innerHTML=campaigns.map(c=>`<div class="csi" id="ami-${c.ioId}" onclick="openAM('${c.ioId}')"><div class="csi-name">${c.name.length>32?c.name.slice(0,32)+'…':c.name}</div><div class="csi-sub">${c.advertiser||'—'} · ${getStatus(c)}</div></div>`).join('')||'<div class="empty">No campaigns.</div>';
+}
+async function openAM(ioId){
+  document.querySelectorAll('#amList .csi').forEach(e=>e.classList.remove('active'));
+  document.getElementById('ami-'+ioId)?.classList.add('active');
+  const c=campaigns.find(x=>x.ioId===ioId);
+  const panel=document.getElementById('amPanel');
+  panel.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading campaign data...</div>';
+  const{rows,tab,error}=await loadTab(c.name);
+  if(error){panel.innerHTML=`<div class="err">${error}</div>`;return;}
+  const b=parseRollup(rows);const vendors=parseVendors(rows);
+  panel.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">${c.name}</span><div style="display:flex;gap:8px;align-items:center">${sPill(c)}<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${tab}</span></div></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"><div class="rollup-card"><div class="rollup-label">Advertiser</div><div style="font-size:13px;font-weight:500">${c.advertiser||'—'}</div></div><div class="rollup-card"><div class="rollup-label">Agency</div><div style="font-size:13px">${c.agency||'—'}</div></div><div class="rollup-card"><div class="rollup-label">Seller</div><div style="font-size:13px">${b.seller||c.team?.split(';')[0]?.trim()||'—'}</div></div><div class="rollup-card"><div class="rollup-label">AM</div><div style="font-size:13px">${b.am||'—'}</div></div></div>${rollupHTML(b)}<div class="divider"></div><div style="font-family:var(--display);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Vendor Line Items</div>${vendorTableHTML(vendors)}</div></div>`;
+}
+
+// ACCOUNT PAGE
+function renderAcctList(){
+  const list=campaigns.filter(c=>['live','upcoming'].includes(getStatus(c)));
+  document.getElementById('acctList').innerHTML=list.map(c=>`<div class="csi" id="aci-${c.ioId}" onclick="openAcct('${c.ioId}')"><div class="csi-name">${c.name.length>32?c.name.slice(0,32)+'…':c.name}</div><div class="csi-sub">${c.advertiser||'—'}</div></div>`).join('')||'<div class="empty">No live campaigns.</div>';
+}
+async function openAcct(ioId){
+  document.querySelectorAll('#acctList .csi').forEach(e=>e.classList.remove('active'));
+  document.getElementById('aci-'+ioId)?.classList.add('active');
+  const c=campaigns.find(x=>x.ioId===ioId);
+  const panel=document.getElementById('acctPanel');
+  panel.innerHTML='<div class="loading"><div class="spinner"></div><br>Loading actuals...</div>';
+  const{rows,tab,error}=await loadTab(c.name);
+  if(error){panel.innerHTML=`<div class="err">${error}</div>`;return;}
+  const vendors=parseVendors(rows).filter(v=>v.name);
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MKEYS=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const totEst=vendors.reduce((s,v)=>s+v.est,0);
+  const totAct=vendors.reduce((s,v)=>s+v.actual,0);
+  const totVar=totAct-totEst;
+  const mRows=vendors.map(v=>{
+    const cells=MKEYS.map(k=>{const n=parseFloat(String(v[k]).replace(/[^0-9.]/g,''))||0;return`<td style="font-family:var(--mono);font-size:11px;text-align:right;${n?'color:var(--blue)':'color:var(--text3)'}">${n?fmtF(n):'—'}</td>`;}).join('');
+    const vc=v.actual>v.est?'td-vn':v.actual>0?'td-vp':'';
+    return`<tr><td style="font-weight:500;font-size:12px">${v.name}</td><td class="td-est">${v.est?fmtF(v.est):'—'}</td><td class="td-act">${v.actual?fmtF(v.actual):'—'}</td><td class="${vc}" style="text-align:right">${v.actual>0?(v.actual>v.est?'+':'')+fmtF(v.actual-v.est):'—'}</td>${cells}</tr>`;
+  }).join('');
+  panel.innerHTML=`<div class="card"><div class="card-header"><span class="card-title">${c.name} — Actuals</span>${sPill(c)}</div><div class="card-body"><div class="rollup-grid" style="margin-bottom:20px"><div class="rollup-card"><div class="rollup-label">Total Estimated</div><div class="rollup-final" style="color:var(--blue)">${fmtF(totEst)}</div></div><div class="rollup-card"><div class="rollup-label">Total Actualized</div><div class="rollup-final" style="color:var(--green)">${fmtF(totAct)||'—'}</div></div><div class="rollup-card"><div class="rollup-label">Variance</div><div class="rollup-final" style="color:${totVar>0?'var(--red)':'var(--green)'}">${totAct>0?(totVar>0?'+':'')+fmtF(totVar):'—'}</div></div><div class="rollup-card"><div class="rollup-label">Budget Booked</div><div class="rollup-final">${fmt(c.budget)}</div></div></div><div class="overflow-x"><table class="vendor-table" style="min-width:900px"><thead><tr><th>Vendor</th><th class="th-est" style="text-align:right">Estimated</th><th class="th-act" style="text-align:right">Actualized</th><th class="th-var" style="text-align:right">Variance</th>${MONTHS.map(m=>`<th style="text-align:right;color:var(--text3)">${m}</th>`).join('')}</tr></thead><tbody>${mRows}</tbody></table></div></div></div>`;
+}
+
+// EXEC PAGE
+function renderExecPage(){
+  const total=campaigns.reduce((s,c)=>s+c.budget,0);
+  const live=campaigns.filter(c=>getStatus(c)==='live').length;
+  const complete=campaigns.filter(c=>getStatus(c)==='complete').length;
+  const clients=new Set(campaigns.map(c=>c.advertiser).filter(Boolean)).size;
+  document.getElementById('execKpis').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Total Budget Booked</div><div class="kpi-val" style="color:var(--amber)">${fmt(total)}</div><div class="kpi-sub">${campaigns.length} campaigns</div></div>
+    <div class="kpi-card"><div class="kpi-label">Live Campaigns</div><div class="kpi-val" style="color:var(--green)">${live}</div><div class="kpi-sub">running now</div></div>
+    <div class="kpi-card"><div class="kpi-label">Completed</div><div class="kpi-val" style="color:var(--purple)">${complete}</div><div class="kpi-sub">wrapped</div></div>
+    <div class="kpi-card"><div class="kpi-label">Unique Clients</div><div class="kpi-val" style="color:var(--blue)">${clients}</div><div class="kpi-sub">advertisers</div></div>`;
+  const rows=campaigns.map(c=>`<tr onclick="openFromHub('${c.ioId}')"><td><div style="font-weight:500;font-size:13px">${c.name}</div><div style="font-family:var(--mono);font-size:10px;color:var(--text3)">IO-${c.ioId}</div></td><td class="td-sub">${c.advertiser||'—'}</td><td>${sPill(c)}</td><td style="font-family:var(--mono);font-size:12px;color:var(--blue)">${fmt(c.budget)}</td><td class="td-sub" style="font-size:11px">${fmtD(c.startDate)}</td><td class="td-sub" style="font-size:11px">${fmtD(c.endDate)}</td><td class="td-sub" style="font-size:11px">${c.team?c.team.split(';')[0].trim():'—'}</td><td class="td-sub">${c.agency||'—'}</td></tr>`).join('');
+  document.getElementById('execTable').innerHTML=`<div class="overflow-x"><table class="deals-table"><thead><tr><th>Campaign</th><th>Advertiser</th><th>Status</th><th>Budget</th><th>Start</th><th>End</th><th>Lead</th><th>Agency</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// NAV
+function goPage(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('backBtn').classList.toggle('visible',page!=='hub'&&page!=='signin');
+  if(page==='seller')renderSellerPage();
+  if(page==='am')renderAMList();
+  if(page==='account')renderAcctList();
+  if(page==='exec')renderExecPage();
+}
+function goHub(){goPage('hub');}
+async function openFromHub(ioId){goPage('am');renderAMList();setTimeout(()=>openAM(ioId),100);}
+</script>
+</body>
+</html>
